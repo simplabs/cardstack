@@ -10,6 +10,75 @@ function toResource(doc) {
   return doc.data;
 }
 
+describe.only('git/indexer with remote config', function() {
+  this.timeout(10000);
+
+  it('throws an error when remote and repo are defined', function() {
+    let factory = new JSONAPIFactory();
+    dataSource = factory.addResource('data-sources')
+      .withAttributes({
+        'source-type': '@cardstack/git',
+        params: {
+          repo: '/user/repo',
+          remote: {
+            url: 'https://github.com/mansona/data-test.git'
+          }
+        }
+      });
+    factory.addResource('plugin-configs', '@cardstack/hub')
+      .withRelated(
+        'default-data-source',
+        dataSource
+      );
+  
+    return expect(createDefaultEnvironment(join(__dirname, '..'), factory.getModels()))
+      .to.be.rejectedWith(/You cannot define the params 'remote' and 'repo' at the same time for this data source/);
+  });
+
+  it('does not throw an error when remote is configured on its own', async function() {
+    let factory = new JSONAPIFactory();
+
+    dataSource = factory.addResource('data-sources')
+      .withAttributes({
+        'source-type': '@cardstack/git',
+        params: {
+          remote: {
+            url: 'https://github.com/mansona/data-test.git'
+          }
+        }
+      });
+    factory.addResource('plugin-configs', '@cardstack/hub')
+      .withRelated(
+        'default-data-source',
+        dataSource
+      );
+
+    let env = await createDefaultEnvironment(join(__dirname, '..'), factory.getModels());
+    await destroyDefaultEnvironment(env);
+  });
+
+  it('does not throw an error when repo is configured on its own', async function() {
+    let factory = new JSONAPIFactory();
+    let repo = await temp.mkdir('cardstack-server-test-remote');
+
+    dataSource = factory.addResource('data-sources')
+      .withAttributes({
+        'source-type': '@cardstack/git',
+        params: {
+          repo
+        }
+      });
+    factory.addResource('plugin-configs', '@cardstack/hub')
+      .withRelated(
+        'default-data-source',
+        dataSource
+      );
+
+    let env = await createDefaultEnvironment(join(__dirname, '..'), factory.getModels());
+    await destroyDefaultEnvironment(env);
+  });
+});
+
 describe('git/indexer with remote', function() {
   let root, env, indexer, searcher, dataSource, start, client;
 
